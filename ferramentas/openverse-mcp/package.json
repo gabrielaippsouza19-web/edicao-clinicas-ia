@@ -1,0 +1,12 @@
+{
+  "name": "openverse-mcp-local",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor MCP local para buscar audio e imagens com licenca aberta na API oficial do Openverse",
+  "main": "server.mjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "3.25.76"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+out
+build
+.DS_Store
+.env
+
+# Mídia nunca entra no git (brutos, fotos de pacientes, trilhas, renders)
+public/*
+!public/.gitkeep

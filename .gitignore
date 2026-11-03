@@ -1,0 +1,47 @@
+# Mídia nunca entra aqui: brutos, fotos de pacientes, trilhas e renders ficam na pasta do cliente
+*.mp4
+*.mov
+*.MOV
+*.m4v
+*.webm
+*.avi
+*.mkv
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.heic
+*.HEIC
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.pdf
+*.zip
+*.rar
+*.7z
+!docs/previa-demo.jpg
+
+# Baixado ou gerado na instalação
+.venv/
+modelos/
+node_modules/
+out/
+dist/
+build/
+__pycache__/
+*.pyc
+template/public/*
+!template/public/.gitkeep
+memoria/MEMORIA-instalada.md
+
+# Clientes e segredos
+clientes/
+.env
+.env.*
+*.key
+*.pem
+nomes-proibidos.txt
+.DS_Store
