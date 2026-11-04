@@ -14,6 +14,8 @@
 | Sintoma | Causa | Correção |
 |---|---|---|
 | Cortes comem o início ou o fim das palavras, legenda adiantada | Em `.MOV` de iPhone o áudio pode começar ~0,7 s depois do vídeo. A transcrição fica deslocada | `transcrever.py` já alinha. Corte só pelo silêncio medido, nunca pela transcrição |
+| Zoom exagerado, rosto cortado | Enquadramento mal medido (medir pelo contorno confunde cabelo comprido com ombros) | A medida usa detecção de rosto. Confira `metodo` em `enquadramento.json` e corrija `olhosY` à mão se preciso |
+| Salto logo no primeiro segundo | Ruído curto antes da primeira palavra virou trecho | `montar-edl` retira trecho curto sem palavra nas pontas do bruto |
 | Salto de imagem incomoda | Corte sem mudar o enquadramento, ou pausa pequena cortada | Trocar `base`, `medio`, `perto` em todo corte. Não cortar pausa abaixo de 0,7 s |
 | Música sobe sozinha no fim | `loudnorm` em modo dinâmico | Ganho fixo e limitador (`renderizar` já faz) |
 | Música alta demais ou inaudível | Trilha fora do nível esperado | `preparar-trilha` deixa em -12 LUFS |

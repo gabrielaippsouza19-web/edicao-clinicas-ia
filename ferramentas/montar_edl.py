@@ -83,6 +83,24 @@ for ini, fim in falas:
     else:
         mantidos.append([ini, fim])
 
+# ruido curto sem nenhuma palavra no comeco ou no fim do bruto nao e fala: vira corte sem motivo
+dados = json.load(open(args.transcricao, encoding="utf-8"))
+ditas = [p for seg in dados["segmentos"] for p in seg["palavras"]]
+
+
+def sem_fala(trecho):
+    ini, fim = trecho
+    return fim - ini < 1.0 and not any(ini - 0.3 <= (p["i"] + p["f"]) / 2 <= fim + 0.3 for p in ditas)
+
+
+if ditas:
+    while len(mantidos) > 1 and sem_fala(mantidos[0]):
+        print(f"retirado do inicio, sem fala: {mantidos[0]}")
+        mantidos.pop(0)
+    while len(mantidos) > 1 and sem_fala(mantidos[-1]):
+        print(f"retirado do fim, sem fala: {mantidos[-1]}")
+        mantidos.pop()
+
 clips, t = [], 0.0
 for ini, fim in mantidos:
     a = max(0.0, ini - RESPIRO_ANTES)
@@ -91,7 +109,6 @@ for ini, fim in mantidos:
     t += b - a
 
 # --- palavras (tempos do bruto), sem as descartadas, com correcoes
-dados = json.load(open(args.transcricao, encoding="utf-8"))
 palavras = []
 for seg in dados["segmentos"]:
     for p in seg["palavras"]:

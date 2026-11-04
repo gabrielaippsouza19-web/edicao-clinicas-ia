@@ -22,7 +22,6 @@
 *.zip
 *.rar
 *.7z
-!docs/previa-demo.jpg
 
 # Baixado ou gerado na instalação
 .venv/

@@ -13,7 +13,6 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 MIDIA = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".wav", ".mp3", ".m4a", ".aac", ".flac", ".heic",
          ".jpg", ".jpeg", ".png", ".gif", ".webp", ".tif", ".tiff", ".pdf", ".onnx", ".zip", ".rar", ".7z"}
-PERMITIDOS = {"docs/previa-demo.jpg"}  # imagem gerada por gerar_demo.py, sem pessoa real
 SEGREDOS = {
     "token do GitHub": r"\bgh[oprsu]_[A-Za-z0-9]{20,}",
     "chave de API": r"\b(sk|pk|rk)[-_](live|test|proj|ant)?[-_]?[A-Za-z0-9]{20,}",
@@ -49,13 +48,11 @@ for rel in arquivos:
     caminho = RAIZ / rel
     if not caminho.is_file():
         continue
-    if caminho.suffix.lower() in MIDIA and rel not in PERMITIDOS:
+    if caminho.suffix.lower() in MIDIA:
         problemas.append(f"{rel}: arquivo de midia ou binario")
         continue
     if caminho.stat().st_size > GRANDE and not rel.endswith("package-lock.json"):
         problemas.append(f"{rel}: maior que 1 MB")
-    if rel in PERMITIDOS:
-        continue
     try:
         texto = caminho.read_text(encoding="utf-8")
     except UnicodeDecodeError:

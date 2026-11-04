@@ -31,27 +31,42 @@ def indice_clipe(t):
     return -1
 
 
-# ---- legendas: quebra em pontuacao, pausa, corte, 3 palavras ou 20 caracteres
+# ---- legendas: quebra em pontuacao, pausa, corte, 3 palavras ou 24 caracteres.
+# Nao termina em palavra de ligacao ("de", "e", "com"): ela abre o bloco seguinte.
+LIGACAO = {"a", "o", "as", "os", "e", "ou", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+           "com", "que", "para", "por", "um", "uma", "meu", "minha", "meus", "minhas", "seu", "sua"}
+MAX_CARACTERES = 24
 legendas, atual = [], []
+
+
+def fechar(palavras_bloco, pausa):
+    bloco = {"t": palavras_bloco[0]["i"], "texto": " ".join(x["p"] for x in palavras_bloco)}
+    if pausa > 0.45:
+        bloco["fim"] = round(palavras_bloco[-1]["f"] + 0.15, 2)
+    legendas.append(bloco)
+
+
 for i, p in enumerate(palavras):
+    if atual and len(" ".join(x["p"] for x in atual + [p])) > MAX_CARACTERES:
+        guardada = atual.pop() if len(atual) > 1 and atual[-1]["p"].lower() in LIGACAO else None
+        fechar(atual, 0.0)
+        atual = [guardada] if guardada else []
     atual.append(p)
     prox = palavras[i + 1] if i + 1 < len(palavras) else None
-    texto = " ".join(x["p"] for x in atual)
     pausa = prox["i"] - p["f"] if prox else 9.0
-    fecha = (
+    natural = (
         prox is None
         or p["p"][-1] in ".?!,;:"
         or pausa > 0.35
         or indice_clipe(prox["i"]) != indice_clipe(p["i"])
-        or len(atual) >= 3
-        or len(texto) >= 20
     )
-    if fecha:
-        bloco = {"t": atual[0]["i"], "texto": texto}
-        if pausa > 0.45:
-            bloco["fim"] = round(p["f"] + 0.15, 2)
-        legendas.append(bloco)
+    if natural:
+        fechar(atual, pausa)
         atual = []
+    elif len(atual) >= 3:
+        guardada = atual.pop() if atual[-1]["p"].lower() in LIGACAO else None
+        fechar(atual, 0.0)
+        atual = [guardada] if guardada else []
 
 # ---- enquadramento: muda em todo corte; trecho longo muda tambem no meio
 CICLO = ["base", "medio", "perto", "medio"]

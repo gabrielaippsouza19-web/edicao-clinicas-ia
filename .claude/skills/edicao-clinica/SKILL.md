@@ -58,7 +58,7 @@ Leia a transcrição em `analise/<id>/transcricao.json`:
 - **Frase regravada ou erro de fala:** ache o tempo e refaça com `--descartar ini-fim --refazer-cortes`.
 - **Termo errado** (nome de procedimento, marca): acrescente em `correcoes.json` e refaça os cortes.
 - **Música do cliente ou licenciada:** `--trilha arquivo`. Sem isso, entra uma trilha ambiente sintetizada, livre de direitos.
-- **Manchas verdes na pele:** olhe os quadros. Se o defeito existir, apague `public/<id>/apresentador.mp4` e rode de novo com `--pele`.
+- **Manchas verdes na pele:** a ferramenta avisa quando desconfia. Olhe os quadros. Se o defeito existir, apague `public/<id>/apresentador.mp4` e `analise/<id>/camadas/cor.mp4` e rode de novo com `--pele`.
 
 ### 3. Material
 
@@ -90,7 +90,7 @@ Abra a folha e olhe de verdade. Se a sua ferramenta não mostra imagem, diga iss
 python {{KIT}}/kit.py renderizar <pasta_cliente> <id-do-video> v1 --capa --conferir
 ```
 
-Entrega em `entregas/`, com master em -14 LUFS e até -1 dBTP. O `--conferir` transcreve o final e compara com o bruto: leia o resultado e explique qualquer diferença. Use uma versão nova a cada rodada.
+Entrega em `entregas/`, com master em -14 LUFS e até -1 dBTP. O `--conferir` transcreve o final e compara com o bruto: leia o resultado e explique qualquer diferença. Palavras curtas como "a" e "e" costumam ser variação da transcrição, e não corte. Em caso de dúvida, ouça o trecho. Use uma versão nova a cada rodada.
 
 Atualize `CLIENTE.md` com tema, pacientes usados, feedback e versão aprovada.
 

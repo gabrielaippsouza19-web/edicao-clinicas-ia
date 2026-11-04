@@ -37,6 +37,11 @@ export const validarVideo = (v: Video, c: Cliente) => {
   // ---- identificador da composição
   if (!/^[a-zA-Z0-9-]+$/.test(v.id)) erros.push(`id "${v.id}": use só letras, números e hífen`);
 
+  // ---- enquadramento: fora desta faixa o zoom corta o rosto
+  const { olhosY, centroX } = v.enquadramento;
+  if (olhosY < 250 || olhosY > 1250) erros.push(`enquadramento: olhosY ${olhosY} fora da faixa. Corrija em enquadramento.json`);
+  if (centroX < 150 || centroX > 930) erros.push(`enquadramento: centroX ${centroX} fora da faixa. Corrija em enquadramento.json`);
+
   // ---- mídia
   const publicos = new Set(getStaticFiles().map((f) => f.name));
   if (publicos.size > 0) {
@@ -78,6 +83,18 @@ export const validarVideo = (v: Video, c: Cliente) => {
   v.legendas.forEach((l) => foraDoBruto("legenda", l.t));
   v.cenas.forEach((x) => foraDoBruto("cena", x.ini));
   v.flashes.forEach((t) => foraDoBruto("flash", t));
+
+  // ---- legenda e letreiro não dividem a mesma altura (a legenda fica de 1098 a 1162)
+  for (const l of v.letreiros) {
+    const altura = l.linhas.reduce((soma, x) => soma + (x.tam ?? 62) * 1.1, 0);
+    if (l.y >= 1162 || l.y + altura <= 1098) continue;
+    v.legendas.forEach((b, i) => {
+      const fim = b.fim ?? (i + 1 < v.legendas.length ? v.legendas[i + 1].t : Infinity);
+      if (b.t < l.fim && fim > l.ini) {
+        erros.push(`legenda "${b.texto}" (${b.t}) sobre o letreiro de ${l.ini}: tire a legenda ou mude o y do letreiro`);
+      }
+    });
+  }
 
   // ---- palavra atrás: a camada transparente não pode atravessar um corte
   for (const a of v.atras) {

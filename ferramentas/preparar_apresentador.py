@@ -6,7 +6,8 @@ Uso: preparar_apresentador.py <video> <pasta_saida> [--modelo arq.onnx] [--ini s
 Sempre gera:
   matte.mp4  recorte em cinza (Robust Video Matting), base da palavra atras da cabeca
   cor.mp4    o video em 1080x1920 30 fps com o fundo real
-  enquadramento.json  altura dos olhos e centro do rosto, medidos no matte
+  enquadramento.json  altura dos olhos e centro do rosto, por deteccao de rosto
+                      (sem rosto detectado, estima pelo contorno do matte)
 Opcional:
   --pele             corrige manchas verdes nas altas luzes da pele (so na pessoa).
                      Use apenas se os quadros mostrarem o defeito.
@@ -42,6 +43,7 @@ args = ap.parse_args()
 video, pasta, ini, dur = args.video, args.pasta, args.ini, args.dur
 os.makedirs(pasta, exist_ok=True)
 AMOSTRA_CADA = 12
+LIMITE_MANCHAS = 0.002  # calibrado em um video com o defeito: 0,0044 sem --pele e 0,0002 com --pele
 matte_mp4 = os.path.join(pasta, "matte.mp4")
 filtro = filtro_video(video)
 
@@ -93,29 +95,60 @@ if not os.path.exists(matte_mp4):
     sai.wait()
     print(f"recorte pronto: {n} quadros", flush=True)
 
-# ------------------------------------------------------------------ enquadramento medido no matte
-em = leitor(matte_mp4, "gray", usar_ini=False, vf=f"scale={W}:{H},fps={FPS}")
-soma, n_amostras, k = None, 0, 0
-while True:
-    bm = em.stdout.read(W * H)
-    if len(bm) < W * H:
-        break
-    if k % AMOSTRA_CADA == 0:
-        m = np.frombuffer(bm, dtype=np.uint8).reshape(H, W)[::4, ::4].astype(np.float32) / 255.0
-        soma = m if soma is None else soma + m
-        n_amostras += 1
-    k += 1
-em.kill()
-media = soma / max(1, n_amostras)
-pessoa = media > 0.5
-larguras = pessoa.sum(axis=1)
-linhas = np.nonzero(larguras > 0.03 * pessoa.shape[1])[0]
-if len(linhas) == 0:
-    enquadramento = {"olhosY": 960, "centroX": 540, "medido": False}
-    print("AVISO: pessoa nao encontrada no matte; enquadramento padrao", flush=True)
-else:
+# ------------------------------------------------------------------ enquadramento
+
+
+def medir_rosto():
+    """Rosto maior de cada quadro, um por segundo. A mediana ignora gesto e virada de cabeca."""
+    import cv2
+
+    detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    cw, ch = W // 2, H // 2
+    ent = subprocess.Popen(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", os.path.join(pasta, "cor.mp4"),
+         "-vf", f"fps=1,scale={cw}:{ch}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        stdout=subprocess.PIPE,
+    )
+    caixas, quadros = [], 0
+    while True:
+        buf = ent.stdout.read(cw * ch)
+        if len(buf) < cw * ch:
+            break
+        quadros += 1
+        img = np.frombuffer(buf, dtype=np.uint8).reshape(ch, cw)
+        achados = detector.detectMultiScale(img, scaleFactor=1.1, minNeighbors=6, minSize=(70, 70))
+        if len(achados):
+            caixas.append(max(achados, key=lambda c: c[2] * c[3]))
+    if len(caixas) < max(1, quadros * 0.3):
+        return None
+    x, y, l, a = np.median(np.array(caixas), axis=0) * 2
+    # nessa deteccao os olhos ficam a ~40% do topo da caixa do rosto
+    return {"olhosY": round(float(y + 0.40 * a)), "centroX": round(float(x + l / 2)),
+            "larguraRosto": round(float(l)), "metodo": "rosto"}
+
+
+def medir_contorno():
+    """Sem rosto detectado: estima pelo topo da cabeca no matte."""
+    em = leitor(matte_mp4, "gray", usar_ini=False, vf=f"scale={W}:{H},fps={FPS}")
+    soma, n_amostras, k = None, 0, 0
+    while True:
+        bm = em.stdout.read(W * H)
+        if len(bm) < W * H:
+            break
+        if k % AMOSTRA_CADA == 0:
+            m = np.frombuffer(bm, dtype=np.uint8).reshape(H, W)[::4, ::4].astype(np.float32) / 255.0
+            soma = m if soma is None else soma + m
+            n_amostras += 1
+        k += 1
+    em.kill()
+    pessoa = soma / max(1, n_amostras) > 0.5
+    larguras = pessoa.sum(axis=1)
+    linhas = np.nonzero(larguras > 0.03 * pessoa.shape[1])[0]
+    if len(linhas) == 0:
+        return {"olhosY": 960, "centroX": 540, "metodo": "padrao"}
     topo = int(linhas[0])
-    # a cabeca termina onde a largura volta a cair (pescoco) ou no limite de 35% da altura
+    # a cabeca termina onde a largura volta a cair (pescoco). Com cabelo comprido isso nao
+    # acontece e a largura vira a dos ombros, entao a altura estimada tem limite
     maximo, fim = 0, topo
     for y in range(topo, min(pessoa.shape[0], topo + int(0.35 * pessoa.shape[0]))):
         if larguras[y] > maximo:
@@ -123,17 +156,47 @@ else:
         elif larguras[y] < 0.85 * maximo:
             break
     centros = [np.nonzero(pessoa[y])[0].mean() for y in range(topo, fim + 1) if pessoa[y].any()]
-    altura_cabeca = 1.35 * maximo
-    enquadramento = {
-        "olhosY": round((topo + 0.46 * altura_cabeca) * 4),
-        "centroX": round(float(np.mean(centros)) * 4),
-        "topoCabeca": topo * 4,
-        "larguraCabeca": maximo * 4,
-        "medido": True,
-    }
-with open(os.path.join(pasta, "enquadramento.json"), "w", encoding="utf-8") as f:
-    json.dump(enquadramento, f, indent=1)
-print("enquadramento:", enquadramento, flush=True)
+    altura_cabeca = min(1.35 * maximo, 0.30 * pessoa.shape[0])
+    return {"olhosY": round((topo + 0.46 * altura_cabeca) * 4), "centroX": round(float(np.mean(centros)) * 4),
+            "metodo": "contorno"}
+
+
+def medir_manchas(rosto):
+    """Parte do rosto onde o verde passa do vermelho nas altas luzes (pele normal tem R > G)."""
+    cw, ch = W // 2, H // 2
+    meia = rosto["larguraRosto"] // 4
+    x0, x1 = max(0, rosto["centroX"] // 2 - meia), min(cw, rosto["centroX"] // 2 + meia)
+    y0, y1 = max(0, (rosto["olhosY"] - meia) // 2), min(ch, (rosto["olhosY"] + 2 * meia) // 2)
+    ent = subprocess.Popen(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", os.path.join(pasta, "cor.mp4"),
+         "-vf", f"fps=1/3,scale={cw}:{ch}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        stdout=subprocess.PIPE,
+    )
+    fracoes = []
+    while True:
+        buf = ent.stdout.read(cw * ch * 3)
+        if len(buf) < cw * ch * 3:
+            break
+        img = np.frombuffer(buf, dtype=np.uint8).reshape(ch, cw, 3)[y0:y1, x0:x1].astype(np.float32) / 255.0
+        y = 0.2126 * img[..., 0] + 0.7152 * img[..., 1] + 0.0722 * img[..., 2]
+        fracoes.append(float(((img[..., 1] >= img[..., 0]) & (y > 0.5)).mean()))
+    return round(float(np.median(fracoes)), 4) if fracoes else 0.0
+
+
+def gravar_enquadramento():
+    enquadramento = medir_rosto() or medir_contorno()
+    if enquadramento["metodo"] == "rosto":
+        enquadramento["manchasPele"] = medir_manchas(enquadramento)
+        if enquadramento["manchasPele"] > LIMITE_MANCHAS and not args.pele:
+            print("AVISO: possiveis manchas verdes na pele. Olhe os quadros e, se confirmar, refaca com --pele.", flush=True)
+    with open(os.path.join(pasta, "enquadramento.json"), "w", encoding="utf-8") as f:
+        json.dump(enquadramento, f, indent=1)
+    print("enquadramento:", enquadramento, flush=True)
+    if enquadramento["metodo"] != "rosto":
+        print("AVISO: rosto nao detectado. Confira o enquadramento nos quadros de revisao.", flush=True)
+    if not 250 <= enquadramento["olhosY"] <= 1250:
+        print("AVISO: olhos fora da faixa esperada. Corrija olhosY a mao em enquadramento.json.", flush=True)
+
 
 # ------------------------------------------------------------------ sem --pele nem fundo: so converte
 placa_final = None
@@ -144,6 +207,7 @@ if not args.pele and not args.fundo_desfocado:
     cmd += ["-vf", filtro, "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "16",
             "-pix_fmt", "yuv420p", "-g", "15", "-movflags", "+faststart", os.path.join(pasta, "cor.mp4")]
     subprocess.run(cmd, check=True)
+    gravar_enquadramento()
     print("pronto: cor.mp4", flush=True)
     sys.exit(0)
 
@@ -221,4 +285,5 @@ sc.wait()
 if sb is not None:
     sb.stdin.close()
     sb.wait()
+gravar_enquadramento()
 print(f"pronto: {n} quadros", flush=True)

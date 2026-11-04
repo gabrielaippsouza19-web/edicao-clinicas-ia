@@ -33,9 +33,9 @@ A pessoa fala olhando para a câmera, e tudo o que aparece nasce de uma palavra 
 
 ## Enquadramento
 
-O `preparar-video` mede a altura dos olhos e o centro do rosto no próprio recorte e grava em `enquadramento.json`. O motor calcula a escala para deixar os olhos em ~38% da altura. Por isso legendas e letreiros caem no mesmo lugar em gravações diferentes.
+O `preparar-video` detecta o rosto, mede a altura dos olhos e o centro do rosto e grava em `enquadramento.json`. O motor calcula a escala para deixar os olhos em ~38% da altura. Por isso legendas e letreiros caem no mesmo lugar em gravações diferentes.
 
-Confira na folha de quadros. Se a medida errar (cabelo volumoso, boné, duas pessoas), corrija `olhosY` e `centroX` à mão em `enquadramento.json`. Se a cabeça estiver muito perto do topo do quadro no bruto, peça para regravar: nenhum zoom cria espaço que não existe.
+Confira na folha de quadros, principalmente se `metodo` não for `rosto`: sem rosto detectado, a medida vem do contorno e é só uma estimativa. Com duas pessoas, vale o rosto maior. Se errar, corrija `olhosY` e `centroX` à mão em `enquadramento.json`. Se a cabeça estiver muito perto do topo do quadro no bruto, peça para regravar: nenhum zoom cria espaço que não existe.
 
 ## Áreas seguras
 

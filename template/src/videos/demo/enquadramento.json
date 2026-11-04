@@ -1,7 +1,7 @@
 {
- "olhosY": 735,
- "centroX": 543,
- "topoCabeca": 524,
- "larguraCabeca": 340,
- "medido": true
+ "olhosY": 730,
+ "centroX": 549,
+ "larguraRosto": 426,
+ "metodo": "rosto",
+ "manchasPele": 0.0
 }
